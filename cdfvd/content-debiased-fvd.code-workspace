@@ -1,0 +1,11 @@
+{
+	"folders": [
+		{
+			"path": ".."
+		},
+		{
+			"path": "../../../../data/UCF-101/train"
+		}
+	],
+	"settings": {}
+}
