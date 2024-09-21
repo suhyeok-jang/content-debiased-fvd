@@ -2,7 +2,6 @@
 
 #fake
 
-
 python process_to_image.py --seed 42 --dataset kinetics400 --video_type real_1 --video_resolution 128 --num_frames 128 --num_clip_samples 2048 --batch 4
 python process_to_image.py --seed 42 --dataset kinetics400 --video_type real_2 --video_resolution 128 --num_frames 128 --num_clip_samples 2048 --batch 4
 python process_to_image.py --seed 42 --dataset kinetics400 --video_type fake --video_resolution 128 --num_frames 128 --num_clip_samples 2048 --distortion_type repeated_patterns_mix --batch 4

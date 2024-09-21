@@ -30,7 +30,7 @@ def video_to_gif(video, gif_path):
     if not os.path.exists(os.path.dirname(gif_path)):
         os.makedirs(os.path.dirname(gif_path))
 
-    imageio.mimsave(gif_path, frames, duration = 0.005)
+    imageio.mimsave(gif_path, frames, duration = int(1000/25)) #25FPS
     print(f'GIF saved to {gif_path}')
 
 def get_videomae_features(stats, model, videos, batchsize=16, device='cuda', model_dtype=torch.float32, concat = False, resize=True):
@@ -139,7 +139,7 @@ class cdfvd(object):
         return self.compute_fvd_from_stats(
             self.fake_stats, self.real_stats)
 
-    def compute_real_stats(self, loader: Union[torch.utils.data.DataLoader, List, None] = None, concat = False, make_gif = False, resize= True) -> FeatureStats:
+    def compute_real_stats(self, loader: Union[torch.utils.data.DataLoader, List, None] = None, concat = False, make_gif = False, resize= True, video_type = 'real_1', cut_front = 0) -> FeatureStats:
         '''
         This function computes the real features from a dataset.
 
@@ -156,16 +156,24 @@ class cdfvd(object):
             assert self.real_stats.max_items is not None
             return
 
-        folder_name = 'real_1' if '1' in os.path.basename(loader.dataset.folder) else 'real_2'
         self.resolution = loader.dataset.resolution
+        self.frames = loader.dataset.sequence_length
+        self.sample_every_n_frames = loader.dataset.sample_every_n_frames
+        self.actual_frames = self.frames // self.sample_every_n_frames
         
         while self.real_stats.max_items is None or self.real_stats.num_items < self.real_stats.max_items:
             for i, batch in enumerate(tqdm(loader)):
-                if make_gif and i<=10:
-                    gif_path = f'/home/jsh/content-debiased-fvd/examples/{self.dataset}/{self.resolution}/{folder_name}/ref_{i}.gif'
-                    video_to_gif(batch['video'][0], gif_path= gif_path) #CTHW
+                if make_gif and i<=30:
+                    if cut_front != 0:
+                        gif_path = f'/home/jsh/content-debiased-fvd/examples/{self.dataset}/{self.resolution}/{cut_front}frames(x{self.sample_every_n_frames})/{video_type}/{batch['label'][0]}/{i}.gif'
+                        video_to_gif(batch['video'][:,:,:cut_front,:,:][0], gif_path= gif_path) #CTHW
+                    else:
+                        gif_path = f'/home/jsh/content-debiased-fvd/examples/{self.dataset}/{self.resolution}/{self.actual_frames}frames(x{self.sample_every_n_frames})/{video_type}/{batch['label'][0]}/{i}.gif'
+                        video_to_gif(batch['video'][0], gif_path= gif_path) #CTHW
 
                 if concat == False:
+                    if cut_front != 0 :
+                        batch['video'] = batch['video'][:,:,:cut_front,:,:]
                     real_videos = rearrange(batch['video']*255, 'b c t h w -> b t h w c').byte().data.numpy()
                 else:
                     b, c, t, h, w = batch['video'].shape
@@ -179,7 +187,7 @@ class cdfvd(object):
 
         return self.real_stats
     
-    def compute_fake_stats(self, loader: Union[torch.utils.data.DataLoader, List, None] = None, concat = False, make_gif = False, resize = True) -> FeatureStats:
+    def compute_fake_stats(self, loader: Union[torch.utils.data.DataLoader, List, None] = None, concat = False, make_gif = False, resize = True, video_type = "fake", cut_front = 0) -> FeatureStats:
         '''
         This function computes the fake features from a dataset.
         
@@ -194,18 +202,29 @@ class cdfvd(object):
         self.distortion_type = loader.dataset.corrupt
         self.severity = loader.dataset.corrupt_severity
         self.resolution = loader.dataset.resolution
+        self.frames = loader.dataset.sequence_length
         
         while self.fake_stats.max_items is None or self.fake_stats.num_items < self.fake_stats.max_items:
             for i,batch in enumerate(tqdm(loader)):
-                if make_gif and i<=10:
+                if make_gif and i<=30:
                     if self.distortion_type in MIX_CORRUPTIONS:
-                        gif_path = f'/home/jsh/content-debiased-fvd/examples/{self.dataset}/{self.resolution}/fake/{self.distortion_type}/{self.severity}/{i}.gif'
+                        gif_path = f'/home/jsh/content-debiased-fvd/examples/{self.dataset}/{self.resolution}/{self.frames}frames/{video_type}/{batch['label'][0]}/{i}.gif'
                     else:
-                        gif_path = f'/home/jsh/content-debiased-fvd/examples/{self.dataset}/{self.resolution}/fake/{self.distortion_type}/{i}.gif'
-                        
-                    video_to_gif(batch['video'][0], gif_path= gif_path) #CTHW
+                        if cut_front != 0:
+                            gif_path = f'/home/jsh/content-debiased-fvd/examples/{self.dataset}/{self.resolution}/{cut_front}frames/{video_type}/{batch['label'][0]}/{i}.gif'
+                        else:
+                            gif_path = f'/home/jsh/content-debiased-fvd/examples/{self.dataset}/{self.resolution}/{self.frames}frames/{video_type}/{batch['label'][0]}/{i}.gif'
+                    
+                    if cut_front != 0:
+                        video_to_gif(batch['video'][:,:,:cut_front,:,:][0], gif_path= gif_path) #CTHW
+                    else:
+                        video_to_gif(batch['video'][0], gif_path= gif_path) #CTHW
                     
                 if concat == False:
+                    if cut_front != 0:
+                        batch['video'] = batch['video'][:,:,:cut_front,:,:] #bcthw
+                        assert batch['video'].shape[2] == cut_front, f"Error: Expected 16 frames, but got {batch['video'].shape[2]} frames."
+                        
                     fake_videos = rearrange(batch['video']*255, 'b c t h w -> b t h w c').byte().data.numpy()
                 else:
                     b, c, t, h, w = batch['video'].shape

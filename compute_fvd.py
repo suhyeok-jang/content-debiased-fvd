@@ -7,7 +7,7 @@ from cdfvd import fvd
 
 def main(args):
     
-    outfile = os.path.join(os.path.dirname(os.path.dirname(args.fake_stat_root)), 'fvd_direc_378.tsv')
+    outfile = os.path.join(os.path.dirname(os.path.dirname(args.fake_stat_root)), 'fvd_256to224.tsv')
     
     with open(outfile, 'a') as f:
         print("idx\tdistortion_type\tseverity\tfvd\tincrease_ratio", file=f, flush=True)
@@ -52,7 +52,6 @@ def main(args):
                     # 결과를 TSV에 기록
                     print("{}\t{}\t{}\t{:.2f}\t{:.1f}".format(
                         i, distortion_type, severity, fvd_score, increase_ratio), file=f, flush=True)
-
 
 
 if __name__ == "__main__":

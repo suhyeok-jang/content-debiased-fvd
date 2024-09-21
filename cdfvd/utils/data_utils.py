@@ -252,7 +252,7 @@ def elastic_transform_incremental(video):
 def mix_distortion(video, corrupt_severity= None, incremental = False, spatiotemporal=False):
     corrupted_image_list = []
     
-    for i in range(video.shape[0]): #128 frame, frame마다 severity 변화 or 16 frames 8구간
+    for i in range(video.shape[0]): #128 frame, 16 frames 8구간
         # severity = np.linspace(0,1,128)[i]
         
         if incremental:
