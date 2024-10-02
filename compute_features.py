@@ -19,14 +19,14 @@ def main(args):
         actual_frames = args.num_frames // args.sample_every_n_frames
         if args.fvd_16:
             if args.cut_front != 0:
-                save_dir= os.path.join('/home/jsh/content-debiased-fvd/stats/new/fvd_16x8', args.dataset, args.video_type, str(args.video_resolution)+'_'+str(args.cut_front)+f'(x{args.sample_every_n_frames})_'+str(args.num_clip_samples))
+                save_dir= os.path.join('/home/jsh/content-debiased-fvd/stats/fvd_16x8', args.dataset, args.video_type, str(args.video_resolution)+'_'+str(args.cut_front)+f'(x{args.sample_every_n_frames})_'+str(args.num_clip_samples))
             else:
-                save_dir= os.path.join('/home/jsh/content-debiased-fvd/stats/new/fvd_16x8', args.dataset, args.video_type, str(args.video_resolution)+'_'+str(actual_frames)+f'(x{args.sample_every_n_frames})_'+str(args.num_clip_samples))
+                save_dir= os.path.join('/home/jsh/content-debiased-fvd/stats/fvd_16x8', args.dataset, args.video_type, str(args.video_resolution)+'_'+str(actual_frames)+f'(x{args.sample_every_n_frames})_'+str(args.num_clip_samples))
         else:
             if args.cut_front != 0:
-                save_dir= os.path.join('/home/jsh/content-debiased-fvd/stats/new/fvd_128', args.dataset, args.video_type, str(args.video_resolution)+'_'+str(args.cut_front)+f'(x{args.sample_every_n_frames})_'+str(args.num_clip_samples))
+                save_dir= os.path.join('/home/jsh/content-debiased-fvd/stats/fvd_128', args.dataset, args.video_type, str(args.video_resolution)+'_'+str(args.cut_front)+f'(x{args.sample_every_n_frames})_'+str(args.num_clip_samples),f'temporal_aware_pooling:{args.temporal_aware_pooling}')
             else:
-                save_dir= os.path.join('/home/jsh/content-debiased-fvd/stats/new/fvd_128', args.dataset, args.video_type, str(args.video_resolution)+'_'+str(actual_frames)+f'(x{args.sample_every_n_frames})_'+str(args.num_clip_samples))
+                save_dir= os.path.join('/home/jsh/content-debiased-fvd/stats/fvd_128', args.dataset, args.video_type, str(args.video_resolution)+'_'+str(actual_frames)+f'(x{args.sample_every_n_frames})_'+str(args.num_clip_samples),f'temporal_aware_pooling:{args.temporal_aware_pooling}')
         if not os.path.exists(save_dir):
             os.makedirs(save_dir)
         else:
@@ -49,24 +49,16 @@ def main(args):
         
         elif args.dataset == "UCF-101":
             if args.video_type == "real_1":
-                # real_video_loader = evaluator.load_videos(video_info= f'/home/jsh/data/{args.dataset}/UCF-101_2048_subset1', 
-                #                     data_type='video_folder', resolution= args.video_resolution, sequence_length= args.num_frames, sample_every_n_frames = args.sample_every_n_frames,
-                #                     num_workers =4, batch_size=args.batch) #num_workers를 0으로 조절하면 error가 안남
-                
-                real_video_loader = evaluator.load_videos(video_info= f'/data/UCF-101/train', 
+                real_video_loader = evaluator.load_videos(video_info= f'data/UCF-101_2048_subset1', 
                     data_type='video_folder', resolution= args.video_resolution, sequence_length= args.num_frames, sample_every_n_frames = args.sample_every_n_frames,
                     num_workers =4, batch_size=args.batch) #num_workers를 0으로 조절하면 error가 안남
             
             else: #real_2
-                # real_video_loader = evaluator.load_videos(video_info= f'/home/jsh/data/{args.dataset}/UCF-101_2048_subset2', 
-                #                     data_type='video_folder', resolution= args.video_resolution, sequence_length= args.num_frames, sample_every_n_frames = args.sample_every_n_frames,
-                #                     num_workers =4, batch_size=args.batch) 
+                real_video_loader = evaluator.load_videos(video_info= f'data/UCF-101_2048_subset2', 
+                    data_type='video_folder', resolution= args.video_resolution, sequence_length= args.num_frames, sample_every_n_frames = args.sample_every_n_frames,
+                    num_workers =4, batch_size=args.batch) 
                 
-                real_video_loader = evaluator.load_videos(video_info= f'/data/UCF-101/train', 
-                        data_type='video_folder', resolution= args.video_resolution, sequence_length= args.num_frames, sample_every_n_frames = args.sample_every_n_frames,
-                        num_workers =4, batch_size=args.batch) 
-                
-        evaluator.compute_real_stats(real_video_loader, concat = args.fvd_16, make_gif = True, resize= args.no_resize, video_type= args.video_type, cut_front = args.cut_front) #evaluator FeatureStats에 저장
+        evaluator.compute_real_stats(real_video_loader, concat = args.fvd_16, make_gif = True, resize= args.no_resize, video_type= args.video_type, cut_front = args.cut_front, temporal_aware_pooling= args.temporal_aware_pooling) #evaluator FeatureStats에 저장
         # print(evaluator.real_stats.raw_mean)
         save_path = os.path.join(save_dir, 'videomae_feature.pkl')
         evaluator.save_real_stats(save_path)
@@ -75,14 +67,14 @@ def main(args):
     else:
         if args.fvd_16:
             if args.cut_front != 0:
-                save_dir = os.path.join('/home/jsh/content-debiased-fvd/stats/new/fvd_16x8', args.dataset, args.video_type, str(args.video_resolution)+'_'+str(args.cut_front)+'_'+str(args.num_clip_samples))
+                save_dir = os.path.join('/home/jsh/content-debiased-fvd/stats/fvd_16x8', args.dataset, args.video_type, str(args.video_resolution)+'_'+str(args.cut_front)+'_'+str(args.num_clip_samples))
             else:
-                save_dir = os.path.join('/home/jsh/content-debiased-fvd/stats/new/fvd_16x8', args.dataset, args.video_type, str(args.video_resolution)+'_'+str(args.num_frames)+'_'+str(args.num_clip_samples))
+                save_dir = os.path.join('/home/jsh/content-debiased-fvd/stats/fvd_16x8', args.dataset, args.video_type, str(args.video_resolution)+'_'+str(args.num_frames)+'_'+str(args.num_clip_samples))
         else:
             if args.cut_front != 0:
-                save_dir = os.path.join('/home/jsh/content-debiased-fvd/stats/new/fvd_128', args.dataset, args.video_type, str(args.video_resolution)+'_'+str(args.cut_front)+'_'+str(args.num_clip_samples))
+                save_dir = os.path.join('/home/jsh/content-debiased-fvd/stats/fvd_128', args.dataset, args.video_type, str(args.video_resolution)+'_'+str(args.cut_front)+'_'+str(args.num_clip_samples),f'temporal_aware_pooling:{args.temporal_aware_pooling}')
             else:
-                save_dir = os.path.join('/home/jsh/content-debiased-fvd/stats/new/fvd_128', args.dataset, args.video_type, str(args.video_resolution)+'_'+str(args.num_frames)+'_'+str(args.num_clip_samples))
+                save_dir = os.path.join('/home/jsh/content-debiased-fvd/stats/fvd_128', args.dataset, args.video_type, str(args.video_resolution)+'_'+str(args.num_frames)+'_'+str(args.num_clip_samples),f'temporal_aware_pooling:{args.temporal_aware_pooling}')
                 
         if not os.path.exists(save_dir):
             os.makedirs(save_dir)
@@ -105,18 +97,18 @@ def main(args):
                                 num_workers =4, batch_size=args.batch) 
             
         elif args.dataset == "UCF-101" and args.video_type == "videocrafter_freenoise":
-            fake_video_loader = evaluator.load_videos(video_info= f'/home/jsh/data/{args.dataset}/generated_freenoise_2048', 
+            fake_video_loader = evaluator.load_videos(video_info= f'data/ucf101_2048_FreeNoise_128frame_25fps', #128 frame 전부 이용.
                                 data_type='video_folder', resolution= args.video_resolution, sequence_length= args.num_frames, sample_every_n_frames = 1,
                                 num_workers =4, batch_size=args.batch) 
             
         elif args.dataset == "UCF-101" and args.video_type == "videocrafter_fifo":
-            fake_video_loader = evaluator.load_videos(video_info= f'/home/jsh/data/{args.dataset}/generated_fifo_2048', 
+            fake_video_loader = evaluator.load_videos(video_info= f'data/ucf101_2048_fifo_128frame_25fps', 
                                 data_type='video_folder', resolution= args.video_resolution, sequence_length= args.num_frames, sample_every_n_frames = 1,
                                 num_workers =4, batch_size=args.batch) 
             
 
-        evaluator.compute_fake_stats(fake_video_loader, concat = args.fvd_16, make_gif=True, resize = args.no_resize, video_type= args.video_type, cut_front = args.cut_front) 
-        print(evaluator.fake_stats.raw_mean)
+        evaluator.compute_fake_stats(fake_video_loader, concat = args.fvd_16, make_gif=True, resize = args.no_resize, video_type= args.video_type, cut_front = args.cut_front, temporal_aware_pooling= args.temporal_aware_pooling) 
+        # print(evaluator.fake_stats.raw_mean)
         save_path = os.path.join(save_dir, 'videomae_feature.pkl')
         evaluator.save_fake_stats(save_path)
 
@@ -137,6 +129,7 @@ if __name__ == "__main__":
     parser.add_argument("--fvd_16", action = "store_true")
     parser.add_argument("--no_resize", action = "store_false") #활성화시 Resize = False
     parser.add_argument("--cut_front", type=int, default=0)
+    parser.add_argument("--temporal_aware_pooling", action = "store_true")
     
     args = parser.parse_args()
     

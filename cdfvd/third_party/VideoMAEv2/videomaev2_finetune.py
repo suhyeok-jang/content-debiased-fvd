@@ -18,6 +18,8 @@ import torch.nn.functional as F
 import torch.utils.checkpoint as cp
 from torch.jit import Final
 from timm.layers import use_fused_attn
+from einops import rearrange
+
 
 
 def _no_grad_trunc_normal_(tensor, mean, std, a, b):
@@ -486,6 +488,7 @@ class VisionTransformer(nn.Module):
         self.norm = nn.Identity() if use_mean_pooling else norm_layer(
             embed_dim)
         self.fc_norm = norm_layer(embed_dim) if use_mean_pooling else None
+        self.norm_layer = norm_layer
         self.head_dropout = nn.Dropout(head_drop_rate)
         self.head = nn.Linear(
             embed_dim, num_classes) if num_classes > 0 else nn.Identity()
@@ -567,18 +570,57 @@ class VisionTransformer(nn.Module):
                 x.device).clone().detach()
         x = self.pos_drop(x)
 
+        for i,blk in enumerate(self.blocks): #40 
+            if self.with_cp:
+                x = cp.checkpoint(blk, x)
+            else:
+                x = blk(x)
+
+        if self.fc_norm is not None: #use_mean_pooling=True
+            return self.fc_norm(x.mean(1))
+        else: #use_mean_pooling=False -> 맨 첫번째 CLS token만 사용 -> 이떄는 2049개 token이겟지 (2048+1)
+            return self.norm(x[:, 0])
+    
+    def forward_temporal_features(self, x):
+        # [1, 3, 16, 224, 224]
+        B,T,H,W = x.size(0), x.size(2), x.size(3), x.size(4)
+
+        # [1, 2048, 1408] -> Resolution에 맞게 바뀜 [1, [T//2 x H//14 x W//14], 1408]
+            # [1, 1408, 8, 16, 16] -> [1, 1408, 2048] -> [1, 2048, 1408]
+            # x = self.proj(x).flatten(2).transpose(1, 2) (Conv3d -> flatten -> transpose)
+        x = self.patch_embed(x)
+
+        if self.pos_embed is not None:
+            x = x + self.interpolate_pos_encoding(T,H,W).expand(B, -1, -1).type_as(x).to(
+                x.device).clone().detach()
+        x = self.pos_drop(x)
+
         for i,blk in enumerate(self.blocks): #40
-            # if i == 20:
-            #     self.blocks[:19].cpu()
-            #     torch.cuda.empty_cache()
-                
             if self.with_cp:
                 x = cp.checkpoint(blk, x)
             else:
                 x = blk(x)
 
         if self.fc_norm is not None:
-            return self.fc_norm(x.mean(1))
+            t = T // self.tubelet_size 
+            h, w = H // self.patch_size, W //self.patch_size
+            
+            #[1, 2048, 1408] -> [1, 64, 16, 16, 1408] -> [1, 64, 256, 1408]
+            x = rearrange(x, 'b (t h w) c -> b t h w c', t=t, h=h, w=w)
+            x = rearrange(x, 'b t h w c -> b t (h w) c')
+            #Spatial Pooling  [1, 64, 256, 1408] -> [1,64,1408]
+            x = x.mean(2) 
+            
+            tubelet_group_size = 8
+            assert t % tubelet_group_size == 0, "t는 num_frames_group의 배수여야 합니다."
+            #Temporal Pooling per 8 tubulet [1,64,1408] -> [1,8,8,1408]
+            x = rearrange(x, 'b (n g) c -> b n g c', n= t//tubelet_group_size, g=tubelet_group_size)
+            x = x.mean(2).flatten(1) # [1,8,8,1408] -> [1,8,1408] -> [1,11264]
+            
+            #Pretrained layernorm 못씀, affine parameter가 Embedding dim size에 따라 달라짐
+            #Initialization은 weight = 1, bias = 0으로 됨
+            adaptive_fc_norm = self.norm_layer(x.shape[1]).to(device=x.device, dtype=x.dtype)
+            return adaptive_fc_norm(x) #정규화는 전체에 대해 적용되어야 함
         else:
             return self.norm(x[:, 0])
 

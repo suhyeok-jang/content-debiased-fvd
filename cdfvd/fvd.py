@@ -33,14 +33,17 @@ def video_to_gif(video, gif_path):
     imageio.mimsave(gif_path, frames, duration = int(1000/25)) #25FPS
     print(f'GIF saved to {gif_path}')
 
-def get_videomae_features(stats, model, videos, batchsize=16, device='cuda', model_dtype=torch.float32, concat = False, resize=True):
+def get_videomae_features(stats, model, videos, batchsize=16, device='cuda', model_dtype=torch.float32, concat = False, resize=True, temporal_aware_pooling=False):
     vid_length = videos.shape[0] #og : BTHWC / concat: 8B
     for i in range(0, videos.shape[0], batchsize): # (0,1,16) 이어도 오류는 안남
         batch = videos[i:min(vid_length, i + batchsize)]
         input_data = preprocess_videomae(batch, resize)  # torch.Size([B, 3, T, H, W])
         input_data = input_data.to(device=device, dtype=model_dtype, non_blocking = True)
         with torch.no_grad():
-            features = model.forward_features(input_data)  # forward_features 호출
+            if temporal_aware_pooling:
+                features = model.forward_temporal_features(input_data)  # forward_features 호출
+            else:
+                features = model.forward_features(input_data)  # forward_features 호출
             if concat == True:
                 features = features.view(vid_length//8, 8, -1) #8개 분리 -> [1,8,1408]
                 features = features.view(vid_length//8, -1) #concat -> [1, 11264]
@@ -139,7 +142,7 @@ class cdfvd(object):
         return self.compute_fvd_from_stats(
             self.fake_stats, self.real_stats)
 
-    def compute_real_stats(self, loader: Union[torch.utils.data.DataLoader, List, None] = None, concat = False, make_gif = False, resize= True, video_type = 'real_1', cut_front = 0) -> FeatureStats:
+    def compute_real_stats(self, loader: Union[torch.utils.data.DataLoader, List, None] = None, concat = False, make_gif = False, resize= True, video_type = 'real_1', cut_front = 0, temporal_aware_pooling=False) -> FeatureStats:
         '''
         This function computes the real features from a dataset.
 
@@ -166,10 +169,12 @@ class cdfvd(object):
                 if make_gif and i<=30:
                     if cut_front != 0:
                         gif_path = f'/home/jsh/content-debiased-fvd/examples/{self.dataset}/{self.resolution}/{cut_front}frames(x{self.sample_every_n_frames})/{video_type}/{batch['label'][0]}/{i}.gif'
-                        video_to_gif(batch['video'][:,:,:cut_front,:,:][0], gif_path= gif_path) #CTHW
+                        if not os.path.exists(gif_path): #없을때만 생성
+                            video_to_gif(batch['video'][:,:,:cut_front,:,:][0], gif_path= gif_path) #CTHW
                     else:
                         gif_path = f'/home/jsh/content-debiased-fvd/examples/{self.dataset}/{self.resolution}/{self.actual_frames}frames(x{self.sample_every_n_frames})/{video_type}/{batch['label'][0]}/{i}.gif'
-                        video_to_gif(batch['video'][0], gif_path= gif_path) #CTHW
+                        if not os.path.exists(gif_path): #없을때만 생성
+                            video_to_gif(batch['video'][0], gif_path= gif_path) #CTHW
 
                 if concat == False:
                     if cut_front != 0 :
@@ -179,7 +184,7 @@ class cdfvd(object):
                     b, c, t, h, w = batch['video'].shape
                     real_videos = rearrange(batch['video']*255, f'b c t h w -> b t h w c')
                     real_videos = rearrange(real_videos, f'b (t1 t2) h w c -> (b t1) t2 h w c', t1=8).byte().data.numpy()
-                self.real_stats = self.feature_fn(self.real_stats, self.model, real_videos, device=self.device, model_dtype=self.model_dtype, concat = concat, resize= resize)
+                self.real_stats = self.feature_fn(self.real_stats, self.model, real_videos, device=self.device, model_dtype=self.model_dtype, concat = concat, resize= resize, temporal_aware_pooling= temporal_aware_pooling)
                 if self.real_stats.max_items is not None and self.real_stats.num_items >= self.real_stats.max_items:
                     break
             if self.real_stats.max_items is None:
@@ -187,7 +192,7 @@ class cdfvd(object):
 
         return self.real_stats
     
-    def compute_fake_stats(self, loader: Union[torch.utils.data.DataLoader, List, None] = None, concat = False, make_gif = False, resize = True, video_type = "fake", cut_front = 0) -> FeatureStats:
+    def compute_fake_stats(self, loader: Union[torch.utils.data.DataLoader, List, None] = None, concat = False, make_gif = False, resize = True, video_type = "fake", cut_front = 0, temporal_aware_pooling=False) -> FeatureStats:
         '''
         This function computes the fake features from a dataset.
         
@@ -215,23 +220,22 @@ class cdfvd(object):
                         else:
                             gif_path = f'/home/jsh/content-debiased-fvd/examples/{self.dataset}/{self.resolution}/{self.frames}frames/{video_type}/{batch['label'][0]}/{i}.gif'
                     
-                    if cut_front != 0:
-                        video_to_gif(batch['video'][:,:,:cut_front,:,:][0], gif_path= gif_path) #CTHW
-                    else:
-                        video_to_gif(batch['video'][0], gif_path= gif_path) #CTHW
+                    if not os.path.exists(gif_path): #없을때만 생성
+                        if cut_front != 0:
+                            video_to_gif(batch['video'][:,:,:cut_front,:,:][0], gif_path= gif_path) #CTHW
+                        else:
+                            video_to_gif(batch['video'][0], gif_path= gif_path) #CTHW
                     
                 if concat == False:
                     if cut_front != 0:
                         batch['video'] = batch['video'][:,:,:cut_front,:,:] #bcthw
                         assert batch['video'].shape[2] == cut_front, f"Error: Expected 16 frames, but got {batch['video'].shape[2]} frames."
-                        
                     fake_videos = rearrange(batch['video']*255, 'b c t h w -> b t h w c').byte().data.numpy()
                 else:
                     b, c, t, h, w = batch['video'].shape
                     fake_videos = rearrange(batch['video']*255, f'b c t h w -> b t h w c')
                     fake_videos = rearrange(fake_videos, f'b (t1 t2) h w c -> (b t1) t2 h w c', t1=8).byte().data.numpy()
-                self.fake_stats = self.feature_fn(self.fake_stats, self.model, fake_videos, device=self.device, model_dtype=self.model_dtype, concat=concat, resize = resize)
-                # n_real clip개수로 제한 (2048)
+                self.fake_stats = self.feature_fn(self.fake_stats, self.model, fake_videos, device=self.device, model_dtype=self.model_dtype, concat=concat, resize = resize, temporal_aware_pooling= temporal_aware_pooling)
                 if self.fake_stats.max_items is not None and self.fake_stats.num_items >= self.fake_stats.max_items:
                     break
             if self.fake_stats.max_items is None:

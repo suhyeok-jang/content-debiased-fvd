@@ -174,4 +174,5 @@ cython_debug/
 stats/
 examples/
 UCF-101/
+data/
 

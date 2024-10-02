@@ -56,27 +56,27 @@ def main(args):
     evaluator = fvd.cdfvd(None, n_real = args.num_clip_samples, n_fake = args.num_clip_samples, seed=args.seed, compute_feats =False, device = "cuda", half_precision = True)
     
     if args.video_type == 'real_1':
-        video_loader = evaluator.load_videos(video_info= f'/data/{args.dataset}/train', 
+        video_loader = evaluator.load_videos(video_info= f'data/UCF-101_2048_subset1', 
                                     data_type='video_folder', resolution= args.video_resolution, sequence_length= args.num_frames, sample_every_n_frames = args.sample_every_n_frames,
                                     num_workers =4, batch_size=args.batch) #num_workers를 0으로 조절하면 error가 안남 / 0: multi-processing 사용 X
     
     elif args.video_type == 'real_2':
-        video_loader = evaluator.load_videos(video_info= f'/data/{args.dataset}/train', 
+        video_loader = evaluator.load_videos(video_info= f'data/UCF-101_2048_subset2', 
                                     data_type='video_folder', resolution= args.video_resolution, sequence_length= args.num_frames, sample_every_n_frames = args.sample_every_n_frames,
                                     num_workers =4, batch_size=args.batch) 
     
     elif args.video_type == "videocrafter_direct":
-        video_loader = evaluator.load_videos(video_info= f'/home/jsh/data/{args.dataset}/generated_direct_2048', 
+        video_loader = evaluator.load_videos(video_info= f'data/ucf101_2048_videocrafter_direct_128frame_25fps', 
                                     data_type='video_folder', resolution= args.video_resolution, sequence_length= args.num_frames, sample_every_n_frames = args.sample_every_n_frames,
                                     num_workers =4, batch_size=args.batch) 
         
     elif args.video_type == "videocrafter_freenoise":
-        video_loader = evaluator.load_videos(video_info= f'/home/jsh/data/{args.dataset}/generated_freenoise_2048', 
+        video_loader = evaluator.load_videos(video_info= f'data/ucf101_2048_videocrafter_freenoise_128frame_25fps', 
                                     data_type='video_folder', resolution= args.video_resolution, sequence_length= args.num_frames, sample_every_n_frames = args.sample_every_n_frames,
                                     num_workers =4, batch_size=args.batch) 
         
     elif args.video_type == "videocrafter_fifo":
-        video_loader = evaluator.load_videos(video_info= f'/home/jsh/data/{args.dataset}/generated_fifo_2048', 
+        video_loader = evaluator.load_videos(video_info= f'data/ucf101_2048_videocrafter_fifo_128frame_25fps', 
                                     data_type='video_folder', resolution= args.video_resolution, sequence_length= args.num_frames, sample_every_n_frames = args.sample_every_n_frames,
                                     num_workers =4, batch_size=args.batch) 
         
